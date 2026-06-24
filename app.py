@@ -5,7 +5,7 @@ from bearing_math import find_equilibrium_eccentricity
 
 st.set_page_config(page_title="Hydrodynamic Tribology", layout="centered")
 st.title("Hydrodynamic Journal Bearing Solver")
-st.markdown("Automated Reynolds lubrication modelling and fluid film profile generation.")
+st.markdown("Automated Reynolds lubrication modeling and fluid film profile generation.")
 st.markdown("---")
 
 # --- SIDEBAR INPUT CONFIGURATION ---
@@ -30,8 +30,8 @@ if st.sidebar.button("Execute Hydrodynamic Solver", use_container_width=True):
     col1, col2, col3 = st.columns(3)
     
     # Calculate Sommerfeld Number for reference
-    P_projected = load/(2*R*L)
-    S = ((R/c)**2)*(visc*(speed/60.0))/P_projected
+    P_projected = load / (2 * R * L)
+    S = ((R / c) ** 2) * (visc * (speed / 60.0)) / P_projected
     
     col1.metric("Sommerfeld Number (S)", f"{S:.3f}")
     col2.metric("Eccentricity Ratio (ε)", f"{eps:.2f}")
@@ -75,7 +75,7 @@ if st.sidebar.button("Execute Hydrodynamic Solver", use_container_width=True):
     st.plotly_chart(fig_3d, use_container_width=True)
 
     # --- PLOT 2: 2D CLEARANCE CROSS-SECTION GRAPH ---
-    st.markdown("### Shaft Eccentric Displacement & Wedge Clearance")
+    st.markdown("### 🎯 Shaft Eccentric Displacement & Wedge Clearance")
     st.write("The outer circle shows the bearing wall. The inner circle shows the shaft center shifting off-center to create the oil wedge.")
     
     angles = np.linspace(0, 2 * np.pi, 200)
@@ -103,7 +103,7 @@ if st.sidebar.button("Execute Hydrodynamic Solver", use_container_width=True):
     # 3. Mark the center points
     fig_2d.add_trace(go.Scatter(x=, y=, mode='markers', name='Sleeve Center', marker=dict(size=8, color='red')))
     fig_2d.add_trace(go.Scatter(x=[x_shaft_center], y=[y_shaft_center], mode='markers', name='Shaft Center', marker=dict(size=8, color='blue')))
-  
+    
     fig_2d.update_layout(
         template="plotly_white", height=500, width=500,
         xaxis=dict(title="Horizontal Clearance (μm)", scaleanchor="y", scaleratio=1),
