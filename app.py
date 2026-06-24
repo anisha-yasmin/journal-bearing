@@ -2,7 +2,7 @@ import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
 
-st.set_page_config(page_title="Hydrodynamic Tribology", layout="centered")
+st.set_page_config(page_title="Hydrodynamic Tribology Suite", layout="centered")
 st.title("Hydrodynamic Journal Bearing Solver")
 st.markdown("Automated Reynolds lubrication modeling and fluid film profile generation.")
 st.markdown("---")
@@ -15,25 +15,37 @@ def solve_reynolds_1d(R, L, c, speed_rpm, viscosity_pas, epsilon, mesh_pts=180):
     
     h = c * (1.0 + epsilon * np.cos(theta))
     
-    A = np.zeros(shape=(mesh_pts, mesh_pts), dtype=np.float64)
-    B = np.zeros(shape=(mesh_pts,), dtype=np.float64)
+    # Initialize a standard Python list of lists for rows
+    A_list = [[0.0] * mesh_pts for _ in range(mesh_pts)]
+    B_list = [0.0] * mesh_pts
     
+    # Boundary condition at node 0
+    A_list = 1.0
+    B_list = 0.0
+    
+    # Fill internal finite difference steps
     for i in range(1, mesh_pts - 1):
         h_mid_plus = (h[i] + h[i+1]) / 2.0
         h_mid_minus = (h[i] + h[i-1]) / 2.0
         
-        A[i, i-1] = (h_mid_minus**3) / (dtheta**2)
-        A[i, i+1] = (h_mid_plus**3) / (dtheta**2)
-        A[i, i] = -(h_mid_minus**3 + h_mid_plus**3) / (dtheta**2)
+        A_list[i][i-1] = (h_mid_minus**3) / (dtheta**2)
+        A_list[i][i+1] = (h_mid_plus**3) / (dtheta**2)
+        A_list[i][i] = -(h_mid_minus**3 + h_mid_plus**3) / (dtheta**2)
         
         dh_dtheta = -c * epsilon * np.sin(theta[i])
-        B[i] = 6 * viscosity_pas * omega * (R**2) * dh_dtheta
+        B_list[i] = 6 * viscosity_pas * omega * (R**2) * dh_dtheta
 
-    A = 1.0; B = 0.0
-    A[-1, -1] = 1.0; B[-1] = 0.0
+    # Boundary condition at the final node
+    A_list[-1][-1] = 1.0
+    B_list[-1] = 0.0
+    
+    # Convert to NumPy arrays only at the moment of solving
+    A = np.array(A_list, dtype=np.float64)
+    B = np.array(B_list, dtype=np.float64)
     
     P = np.linalg.solve(A, B)
     
+    # Enforce Reynolds Cavitation condition
     for _ in range(10):
         for i in range(1, mesh_pts - 1):
             if P[i] < 0:
