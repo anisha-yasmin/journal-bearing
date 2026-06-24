@@ -103,7 +103,7 @@ if st.sidebar.button("Execute Hydrodynamic Solver", use_container_width=True):
     # 3. Mark the center points
     fig_2d.add_trace(go.Scatter(x=, y=, mode='markers', name='Sleeve Center', marker=dict(size=8, color='red')))
     fig_2d.add_trace(go.Scatter(x=[x_shaft_center], y=[y_shaft_center], mode='markers', name='Shaft Center', marker=dict(size=8, color='blue')))
-    
+  
     fig_2d.update_layout(
         template="plotly_white", height=500, width=500,
         xaxis=dict(title="Horizontal Clearance (μm)", scaleanchor="y", scaleratio=1),
