@@ -2,7 +2,7 @@ import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
 
-st.set_page_config(page_title="Hydrodynamic Tribology Suite", layout="centered")
+st.set_page_config(page_title="Hydrodynamic Tribology", layout="centered")
 st.title("Hydrodynamic Journal Bearing Solver")
 st.markdown("Automated Reynolds lubrication modeling and fluid film profile generation.")
 st.markdown("---")
@@ -15,31 +15,31 @@ def solve_reynolds_1d(R, L, c, speed_rpm, viscosity_pas, epsilon, mesh_pts=180):
     
     h = c * (1.0 + epsilon * np.cos(theta))
     
-    # Explicit 2D array allocation
-    A = np.zeros((mesh_pts, mesh_pts), dtype=np.float64)
-    B = np.zeros(mesh_pts, dtype=np.float64)
+    # Using fully unique explicit names to guarantee 2D matrix assignment
+    system_matrix_A = np.zeros((mesh_pts, mesh_pts), dtype=np.float64)
+    forcing_vector_B = np.zeros(mesh_pts, dtype=np.float64)
     
     # Boundary condition at node 0
-    A = 1.0
-    B = 0.0
+    system_matrix_A = 1.0
+    forcing_vector_B = 0.0
     
-    # Simple row-by-row indexing avoids all slicing and broadcasting errors
+    # Loop through internal nodes
     for i in range(1, mesh_pts - 1):
         h_mid_plus = (h[i] + h[i+1]) / 2.0
         h_mid_minus = (h[i] + h[i-1]) / 2.0
         
-        A[i, i-1] = (h_mid_minus**3) / (dtheta**2)
-        A[i, i+1] = (h_mid_plus**3) / (dtheta**2)
-        A[i, i] = -(h_mid_minus**3 + h_mid_plus**3) / (dtheta**2)
+        system_matrix_A[i, i-1] = (h_mid_minus**3) / (dtheta**2)
+        system_matrix_A[i, i+1] = (h_mid_plus**3) / (dtheta**2)
+        system_matrix_A[i, i] = -(h_mid_minus**3 + h_mid_plus**3) / (dtheta**2)
         
         dh_dtheta = -c * epsilon * np.sin(theta[i])
-        B[i] = 6 * viscosity_pas * omega * (R**2) * dh_dtheta
+        forcing_vector_B[i] = 6 * viscosity_pas * omega * (R**2) * dh_dtheta
 
     # Boundary condition at the final node
-    A[-1, -1] = 1.0
-    B[-1] = 0.0
+    system_matrix_A[-1, -1] = 1.0
+    forcing_vector_B[-1] = 0.0
     
-    P = np.linalg.solve(A, B)
+    P = np.linalg.solve(system_matrix_A, forcing_vector_B)
     P = np.maximum(P, 0.0)
     return theta, P
 
