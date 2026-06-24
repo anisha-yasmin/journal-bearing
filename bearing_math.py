@@ -1,26 +1,78 @@
 import numpy as np
 
-def calculate_bearing_performance(R, L, c, speed_rpm, load_n, viscosity_pas):
+def solve_reynolds_1d(R, L, c, speed_rpm, viscosity_pas, epsilon, mesh_pts=180):
     """
-    Computes fluid film geometry and dimensionless tribology metrics.
+    Solves the 1D Reynolds equation around the bearing circumference
+    using finite differences, enforcing the Reynolds cavitation boundary condition.
     """
-    omega = 2 * np.pi * (speed_rpm / 60.0)  # rad/s
-    P = load_n / (2 * R * L)                 # Projected pressure (Pa)
+    omega = 2 * np.pi * (speed_rpm / 60.0)
+    theta = np.linspace(0, 2 * np.pi, mesh_pts)
+    dtheta = theta - theta # Step size
     
-    # 1. Calculate Sommerfeld Number
-    S = ((R / c) ** 2) * (viscosity_pas * (speed_rpm / 60.0)) / P
+    # Film thickness profile: h = c * (1 + epsilon * cos(theta))
+    h = c * (1.0 + epsilon * np.cos(theta))
     
-    # 2. Approximate Eccentricity Ratio (epsilon) using a standard analytical curve fit
-    # In a full numerical app, we can use an iterative solver for Swift-Stieber boundaries
-    epsilon = 1.0 - np.exp(-2.5 * S) if S > 0 else 0.99
-    epsilon = min(max(epsilon, 0.01), 0.95)
+    # Set up the linear system system: A * P = B
+    A = np.zeros((mesh_pts, mesh_pts))
+    B = np.zeros(mesh_pts)
     
-    # Minimum film thickness
-    h_min = c * (1.0 - epsilon)
+    # Central difference coefficients for: d/dtheta ( h^3 * dp/dtheta ) = 6 * mu * omega * R^2 * dh/dtheta
+    for i in range(1, mesh_pts - 1):
+        h_mid_plus = (h[i] + h[i+1]) / 2.0
+        h_mid_minus = (h[i] + h[i-1]) / 2.0
+        
+        # Finite difference terms for left, center, and right nodes
+        A[i, i-1] = h_mid_minus**3 / dtheta**2
+        A[i, i+1] = h_mid_plus**3 / dtheta**2
+        A[i, i] = -(h_mid_minus**3 + h_mid_plus**3) / dtheta**2
+        
+        # Right hand side forcing function (6 * mu * omega * R^2 * dh/dtheta)
+        dh_dtheta = -c * epsilon * np.sin(theta[i])
+        B[i] = 6 * viscosity_pas * omega * (R**2) * dh_dtheta
+
+    # Enforce boundary conditions at the edges (0 and 2*pi split)
+    A = 1; B = 0
+    A[-1, -1] = 1; B[-1] = 0
     
-    return {
-        "Sommerfeld": S,
-        "Eccentricity": epsilon,
-        "Min Film Thickness (um)": h_min * 1e6,
-        "Projected Pressure (MPa)": P / 1e6
-    }
+    # Solve initial pressure distribution
+    P = np.linalg.solve(A, B)
+    
+    # Enforce Reynolds Cavitation condition (Swift-Stieber: P >= 0)
+    # Iterate to find the true oil-film rupture boundary point
+    for _ in range(10): # Quick relaxation loop for boundary convergence
+        for i in range(1, mesh_pts - 1):
+            if P[i] < 0:
+    def find_equilibrium_eccentricity(R, L, c, speed_rpm, load_n, viscosity_pas):
+    """
+    Iterates through eccentricity ratios to find where the integrated fluid 
+    pressure vector matches the external bearing load.
+    """
+    best_eps = 0.5
+    min_force_error = float('inf')
+    
+    # Step through possible eccentricity ranges (0.05 to 0.95)
+    for eps in np.linspace(0.05, 0.95, 50):
+        theta, P = solve_reynolds_1d(R, L, c, speed_rpm, viscosity_pas, eps)
+        
+        # Integrate pressure forces along vertical and horizontal components
+        # Assuming a parabolic axial pressure distribution: P(theta, z) = P_1d(theta) * (1 - (2z/L)^2)
+        # Integrated axial factor is (2/3) * L
+        axial_integration_factor = (2.0 / 3.0) * L
+        
+        fx = np.trapz(P * np.cos(theta), theta) * R * axial_integration_factor
+        fy = np.trapz(P * np.sin(theta), theta) * R * axial_integration_factor
+        total_fluid_force = np.sqrt(fx**2 + fy**2)
+        
+        error = abs(total_fluid_force - load_n)
+        if error < min_force_error:
+            min_force_error = error
+            best_eps = eps
+            
+    # Regenerate the final matching pressure field profile
+    theta, P_final = solve_reynolds_1d(R, L, c, speed_rpm, viscosity_pas, best_eps)
+    h_min = c * (1.0 - best_eps)
+    
+    return best_eps, theta, P_final, h_min
+                P[i] = 0.0
+                
+    return theta, P
