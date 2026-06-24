@@ -11,42 +11,38 @@ st.markdown("---")
 def solve_reynolds_1d(R, L, c, speed_rpm, viscosity_pas, epsilon, mesh_pts=180):
     omega = 2 * np.pi * (speed_rpm / 60.0)
     theta = np.linspace(0, 2 * np.pi, mesh_pts)
-    
-    # Explicitly calculate step size to protect against division by zero
     dtheta = 2.0 * np.pi / (mesh_pts - 1)
     
     h = c * (1.0 + epsilon * np.cos(theta))
     
-    # Initialize matrix A as an explicit 2D grid and B as a 1D vector
-    A = np.zeros((mesh_pts, mesh_pts), dtype=np.float64)
-    B = np.zeros(mesh_pts, dtype=np.float64)
+    # Pre-calculate mid-point values for all nodes across the mesh grid
+    h_mid_plus = (h[:-1] + h[1:]) / 2.0
+    h_mid_minus = h_mid_plus # Symmetric shift for midpoints
     
-    # Boundary condition at node 0
+    # Construct finite difference diagonal vectors directly
+    diag_minus = (h_mid_minus[:-1]**3) / (dtheta**2)
+    diag_plus = (h_mid_plus[1:]**3) / (dtheta**2)
+    
+    main_diag = np.zeros(mesh_pts)
+    main_diag[1:-1] = -(h_mid_minus[1:]**3 + h_mid_plus[:-1]**3) / (dtheta**2)
+    
+    # Assemble the 2D system matrix automatically using diagonals
+    A = np.diag(main_diag)
+    A[np.arange(1, mesh_pts-1), np.arange(0, mesh_pts-2)] = diag_minus[:-1]
+    A[np.arange(1, mesh_pts-1), np.arange(2, mesh_pts)] = diag_plus[1:]
+    
+    # Enforce boundary identities
     A = 1.0
-    B = 0.0
-    
-    # Fill internal finite difference steps cleanly using 2D array syntax
-    for i in range(1, mesh_pts - 1):
-        h_mid_plus = (h[i] + h[i+1]) / 2.0
-        h_mid_minus = (h[i] + h[i-1]) / 2.0
-        
-        A[i, i-1] = (h_mid_minus**3) / (dtheta**2)
-        A[i, i+1] = (h_mid_plus**3) / (dtheta**2)
-        A[i, i] = -(h_mid_minus**3 + h_mid_plus**3) / (dtheta**2)
-        
-        dh_dtheta = -c * epsilon * np.sin(theta[i])
-        B[i] = 6 * viscosity_pas * omega * (R**2) * dh_dtheta
-
-    # Boundary condition at the final node
     A[-1, -1] = 1.0
-    B[-1] = 0.0
     
-    # Solve linear system directly using native 2D array layouts
+    # Build right-hand forcing vector
+    B = np.zeros(mesh_pts)
+    dh_dtheta = -c * epsilon * np.sin(theta)
+    B[1:-1] = 6 * viscosity_pas * omega * (R**2) * dh_dtheta[1:-1]
+    
+    # Compute native linear system solution array
     P = np.linalg.solve(A, B)
-    
-    # Enforce Reynolds Cavitation boundary condition (No negative pressures)
     P = np.maximum(P, 0.0)
-                
     return theta, P
 
 def find_equilibrium_eccentricity(R, L, c, speed_rpm, load_n, viscosity_pas):
@@ -68,7 +64,6 @@ def find_equilibrium_eccentricity(R, L, c, speed_rpm, load_n, viscosity_pas):
             
     theta, P_final = solve_reynolds_1d(R, L, c, speed_rpm, viscosity_pas, best_eps)
     h_min = c * (1.0 - best_eps)
-    
     return best_eps, theta, P_final, h_min
 
 # --- SIDEBAR INPUT CONFIGURATION ---
