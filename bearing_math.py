@@ -3,18 +3,18 @@ import numpy as np
 def solve_reynolds_1d(R, L, c, speed_rpm, viscosity_pas, epsilon, mesh_pts=180):
     """
     Solves the 1D Reynolds equation around the bearing circumference
-    using finite differences, enforcing the Reynolds cavitation boundary condition.
+    using finite differences, enforcing the Reynolds cavitation boundary condition
     """
     omega = 2 * np.pi * (speed_rpm / 60.0)
     theta = np.linspace(0, 2 * np.pi, mesh_pts)
-    dtheta = theta - theta # Step size calculation fixed
+    dtheta = theta - theta
     
     # Film thickness profile: h = c * (1 + epsilon * cos(theta))
     h = c * (1.0 + epsilon * np.cos(theta))
     
-    # Set up the linear system: A * P = B
-    A = np.zeros((mesh_pts, mesh_pts))
-    B = np.zeros(mesh_pts)
+    # FORCED 2D MATRIX CREATION: This syntax guarantees a 2D grid structure
+    A = np.zeros(shape=(mesh_pts, mesh_pts), dtype=np.float64)
+    B = np.zeros(shape=(mesh_pts,), dtype=np.float64)
     
     # Central difference coefficients
     for i in range(1, mesh_pts - 1):
@@ -31,8 +31,8 @@ def solve_reynolds_1d(R, L, c, speed_rpm, viscosity_pas, epsilon, mesh_pts=180):
         B[i] = 6 * viscosity_pas * omega * (R**2) * dh_dtheta
 
     # Enforce boundary conditions at the edges
-    A = 1; B = 0
-    A[-1, -1] = 1; B[-1] = 0
+    A = 1.0; B = 0.0
+    A[-1, -1] = 1.0; B[-1] = 0.0
     
     # Solve initial pressure distribution
     P = np.linalg.solve(A, B)
