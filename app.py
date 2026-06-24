@@ -15,15 +15,15 @@ def solve_reynolds_1d(R, L, c, speed_rpm, viscosity_pas, epsilon, mesh_pts=180):
     
     h = c * (1.0 + epsilon * np.cos(theta))
     
-    # Initialize a true 2D NumPy array structure
+    # Explicit 2D array allocation
     A = np.zeros((mesh_pts, mesh_pts), dtype=np.float64)
     B = np.zeros(mesh_pts, dtype=np.float64)
     
-    # Enforce boundary identities at the first node
+    # Boundary condition at node 0
     A = 1.0
     B = 0.0
     
-    # Populating the finite difference system row by row using explicit 2D indexing
+    # Simple row-by-row indexing avoids all slicing and broadcasting errors
     for i in range(1, mesh_pts - 1):
         h_mid_plus = (h[i] + h[i+1]) / 2.0
         h_mid_minus = (h[i] + h[i-1]) / 2.0
@@ -35,11 +35,10 @@ def solve_reynolds_1d(R, L, c, speed_rpm, viscosity_pas, epsilon, mesh_pts=180):
         dh_dtheta = -c * epsilon * np.sin(theta[i])
         B[i] = 6 * viscosity_pas * omega * (R**2) * dh_dtheta
 
-    # Enforce boundary identities at the last node
+    # Boundary condition at the final node
     A[-1, -1] = 1.0
     B[-1] = 0.0
     
-    # Solve the system
     P = np.linalg.solve(A, B)
     P = np.maximum(P, 0.0)
     return theta, P
